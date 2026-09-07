@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CobraSets File Viewer</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2rem;
+      line-height: 1.5;
+      background: #f7f7f7;
+      color: #222;
+    }
+
+    main {
+      max-width: 800px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    input[type="file"] {
+      margin: 1rem 0;
+    }
+
+    #file-name {
+      font-weight: bold;
+      margin-bottom: 0.75rem;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #f0f0f0;
+      padding: 1rem;
+      border-radius: 6px;
+      min-height: 200px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>File Viewer</h1>
+    <p>Upload a text file to read and display its contents.</p>
+
+    <input id="file-input" type="file" aria-label="Upload a file">
+    <div id="file-name">No file selected.</div>
+    <pre id="file-content">File contents will appear here.</pre>
+  </main>
+
+  <script>
+    const fileInput = document.getElementById('file-input');
+    const fileName = document.getElementById('file-name');
+    const fileContent = document.getElementById('file-content');
+
+    fileInput.addEventListener('change', async (event) => {
+      const [file] = event.target.files;
+
+      if (!file) {
+        fileName.textContent = 'No file selected.';
+        fileContent.textContent = 'File contents will appear here.';
+        return;
+      }
+
+      fileName.textContent = `Selected file: ${file.name}`;
+
+      try {
+        const text = await file.text();
+        fileContent.textContent = text || '(The file is empty.)';
+      } catch (error) {
+        fileContent.textContent = 'Unable to read the selected file as text.';
+      }
+    });
+  </script>
+</body>
+</html>
