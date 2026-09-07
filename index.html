@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CobraSets File Viewer</title>
+  <title>CobraSets File Generator</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -31,6 +31,26 @@
       margin-bottom: 0.75rem;
     }
 
+    #output-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    #copy-button {
+      padding: 0.4rem 0.9rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    #copy-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
     pre {
       white-space: pre-wrap;
       word-break: break-word;
@@ -44,11 +64,15 @@
 </head>
 <body>
   <main>
-    <h1>File Viewer</h1>
-    <p>Upload a text file to read and display its contents.</p>
+    <h1>CubeCobra to Draftmancer</h1>
+    <p>Upload a CubeCobra custom set CSV file to generate a Draftmancer file.</p>
 
     <input id="file-input" type="file" aria-label="Upload a file">
     <div id="file-name">No file selected.</div>
+    <div id="output-header">
+      <span>Output</span>
+      <button id="copy-button" type="button" disabled>Copy</button>
+    </div>
     <pre id="file-content">File contents will appear here.</pre>
   </main>
 
@@ -56,6 +80,7 @@
     const fileInput = document.getElementById('file-input');
     const fileName = document.getElementById('file-name');
     const fileContent = document.getElementById('file-content');
+    const copyButton = document.getElementById('copy-button');
 
     // Parses CSV text into rows, honoring quoted fields that may contain commas/newlines.
     function parseCsv(text) {
@@ -173,9 +198,9 @@
 
       out += '\n[Settings]';
       out += '\n{';
-      out += `\n\t"name": "${outputName}",`;
-      out += '\n\t"showSlots": true,';
-      out += '\n\t"withReplacement": true,';
+      out += `\n    "name": "${outputName}",`;
+      out += '\n    "showSlots": true,';
+      out += '\n    "withReplacement": true,';
       out += '\n    "layouts": {\n        "Default": {\n            "weight": 1,\n            "slots": [';
 
       if (hasMythics) {
@@ -189,20 +214,20 @@
                     ]			 
                 },`;
       } else {
-        out += '\n\t\t\t\t{"name": "Rare", "count": 1 },';
+        out += '\n                {"name": "Rare", "count": 1 },';
       }
 
-      out += '\n\t\t\t\t{"name": "Uncommon", "count": 3 },';
+      out += '\n                {"name": "Uncommon", "count": 3 },';
 
       if (hasSpecials) {
-        out += '\n\t\t\t\t{"name": "Common", "count": 9 },';
-        out += '\n\t\t\t\t{"name": "Special", "count": 1 },';
+        out += '\n                {"name": "Common", "count": 9 },';
+        out += '\n                {"name": "Special", "count": 1 },';
       } else {
-        out += '\n\t\t\t\t{"name": "Common", "count": 10 },';
+        out += '\n                {"name": "Common", "count": 10 },';
       }
 
       if (hasBasics) {
-        out += '\n\t\t\t\t{"name": "Basics", "count": 1 },';
+        out += '\n                {"name": "Basics", "count": 1 },';
       }
 
       out += ' \n            ]\n        }\n    }\n}';
@@ -216,6 +241,7 @@
       if (!file) {
         fileName.textContent = 'No file selected.';
         fileContent.textContent = 'File contents will appear here.';
+        copyButton.disabled = true;
         return;
       }
 
@@ -224,8 +250,26 @@
       try {
         const text = await processFile(file, false, null);
         fileContent.textContent = text || '(The file is empty.)';
+        copyButton.disabled = !text;
       } catch (error) {
         fileContent.textContent = 'Unable to read the selected file as text.';
+        copyButton.disabled = true;
+      }
+    });
+
+    copyButton.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(fileContent.textContent);
+        const originalLabel = copyButton.textContent;
+        copyButton.textContent = 'Copied!';
+        setTimeout(() => {
+          copyButton.textContent = originalLabel;
+        }, 1500);
+      } catch (error) {
+        copyButton.textContent = 'Copy failed';
+        setTimeout(() => {
+          copyButton.textContent = 'Copy';
+        }, 1500);
       }
     });
   </script>
