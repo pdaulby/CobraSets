@@ -80,7 +80,7 @@
 
     <input id="file-input" type="file" aria-label="Upload a file">
     <div id="file-name">No file selected.</div>
-    <label><input id="basic-rarities-input" type="checkbox"> Basics in packs</label>
+    <label title="Basics will only appear if they also appear in your CubeCobra set"><input id="basic-rarities-input" type="checkbox"> Basics in packs</label>
     <div id="output-header">
       <span>Output</span>
       <div>
@@ -263,7 +263,7 @@
       }
 
       try {
-        const text = await processFile(currentFile, basicRaritiesInput.checked, null);
+        const text = await processFile(currentFile, !basicRaritiesInput.checked, null);
         fileContent.textContent = text || '(The file is empty.)';
         copyButton.disabled = !text;
         downloadButton.disabled = !text;
