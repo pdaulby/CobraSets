@@ -80,7 +80,7 @@
 
     <input id="file-input" type="file" accept=".csv,text/csv" aria-label="Upload a CSV file">
     <div id="file-name">No file selected.</div>
-    <label title="Basics will only appear if they also appear in your CubeCobra set"><input id="basic-rarities-input" type="checkbox"> Basics in packs</label>
+    <label id="basic-rarities-label" style="display: none;" title="Basics will only appear if they also appear in your CubeCobra set"><input id="basic-rarities-input" type="checkbox"> Basics in packs</label>
     <div id="output-header">
       <span>Output</span>
       <div>
@@ -98,6 +98,7 @@
     const copyButton = document.getElementById('copy-button');
     const downloadButton = document.getElementById('download-button');
     const basicRaritiesInput = document.getElementById('basic-rarities-input');
+    const basicRaritiesLabel = document.getElementById('basic-rarities-label');
     let lastOutputName = 'draftmancer';
     let currentFile = null;
 
@@ -147,10 +148,7 @@
       return rows.filter((r) => !(r.length === 1 && r[0] === ''));
     }
 
-    async function processFile(file, basicRarities, manualFileName) {
-      const text = await file.text();
-      const rows = parseCsv(text);
-
+    function bucketRows(rows) {
       const basics = [];
       const commons = [];
       const uncommons = [];
@@ -174,7 +172,7 @@
 
         const line = `1 ${name} (${set}) ${num}`;
 
-        if (!basicRarities && types.includes('Basic')) {
+        if (types.includes('Basic')) {
           basics.push(line);
         } else if (rarity === 'common') {
           commons.push(line);
@@ -189,7 +187,15 @@
         }
       }
 
-      const hasBasics = basics.length > 0;
+      return { basics, commons, uncommons, rares, mythics, specials };
+    }
+
+    async function processFile(file, basicsInPacks, manualFileName) {
+      const text = await file.text();
+      const rows = parseCsv(text);
+      const { basics, commons, uncommons, rares, mythics, specials } = bucketRows(rows);
+
+      const hasBasics = basicsInPacks && basics.length > 0;
       const hasMythics = mythics.length > 0;
       const hasSpecials = specials.length > 0;
 
@@ -263,7 +269,7 @@
       }
 
       try {
-        const text = await processFile(currentFile, !basicRaritiesInput.checked, null);
+        const text = await processFile(currentFile, basicRaritiesInput.checked, null);
         fileContent.textContent = text || '(The file is empty.)';
         copyButton.disabled = !text;
         downloadButton.disabled = !text;
@@ -280,6 +286,8 @@
       if (!file) {
         currentFile = null;
         fileName.textContent = 'No file selected.';
+        basicRaritiesLabel.style.display = 'none';
+        basicRaritiesInput.checked = false;
         await updateOutput();
         return;
       }
@@ -288,6 +296,8 @@
         currentFile = null;
         fileInput.value = '';
         fileName.textContent = 'Please select a .csv file.';
+        basicRaritiesLabel.style.display = 'none';
+        basicRaritiesInput.checked = false;
         await updateOutput();
         return;
       }
@@ -295,6 +305,12 @@
       currentFile = file;
       fileName.textContent = `Selected file: ${file.name}`;
       lastOutputName = file.name.replace(/\.[^/.]+$/, '') || 'draftmancer';
+
+      const rows = parseCsv(await file.text());
+      const hasBasics = bucketRows(rows).basics.length > 0;
+      //this could happen in updateOutput but its complex, we do it here to set the initial state of the basics checkbox and label
+      basicRaritiesLabel.style.display = hasBasics ? '' : 'none';
+      basicRaritiesInput.checked = hasBasics;
 
       await updateOutput();
     });
