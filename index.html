@@ -57,6 +57,159 @@
     const fileName = document.getElementById('file-name');
     const fileContent = document.getElementById('file-content');
 
+    // Parses CSV text into rows, honoring quoted fields that may contain commas/newlines.
+    function parseCsv(text) {
+      const rows = [];
+      let row = [];
+      let field = '';
+      let inQuotes = false;
+
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+
+        if (inQuotes) {
+          if (char === '"') {
+            if (text[i + 1] === '"') {
+              field += '"';
+              i++;
+            } else {
+              inQuotes = false;
+            }
+          } else {
+            field += char;
+          }
+        } else if (char === '"') {
+          inQuotes = true;
+        } else if (char === ',') {
+          row.push(field);
+          field = '';
+        } else if (char === '\r') {
+          // ignore, newline is handled below
+        } else if (char === '\n') {
+          row.push(field);
+          rows.push(row);
+          row = [];
+          field = '';
+        } else {
+          field += char;
+        }
+      }
+
+      if (field.length > 0 || row.length > 0) {
+        row.push(field);
+        rows.push(row);
+      }
+
+      return rows.filter((r) => !(r.length === 1 && r[0] === ''));
+    }
+
+    async function processFile(file, basicRarities, manualFileName) {
+      const text = await file.text();
+      const rows = parseCsv(text);
+
+      const basics = [];
+      const commons = [];
+      const uncommons = [];
+      const rares = [];
+      const mythics = [];
+      const specials = [];
+
+      for (const row of rows) {
+        // 0    1   2    3     4   5                6      7              8      9      10         11        12             13   14    15
+        // name,CMC,Type,Color,Set,Collector Number,Rarity,Color Category,status,Finish,maybeboard,image URL,image Back URL,tags,Notes,MTGO ID
+        const name = row[0];
+        const types = row[2].split(' ');
+        const set = row[4];
+        const num = row[5];
+        const rarity = row[6];
+        const maybeboard = row[10];
+
+        if (maybeboard === 'true') {
+          continue;
+        }
+
+        const line = `1 ${name} (${set}) ${num}`;
+
+        if (!basicRarities && types.includes('Basic')) {
+          basics.push(line);
+        } else if (rarity === 'common') {
+          commons.push(line);
+        } else if (rarity === 'uncommon') {
+          uncommons.push(line);
+        } else if (rarity === 'rare') {
+          rares.push(line);
+        } else if (rarity === 'mythic') {
+          mythics.push(line);
+        } else if (rarity === 'special') {
+          specials.push(line);
+        }
+      }
+
+      const hasBasics = basics.length > 0;
+      const hasMythics = mythics.length > 0;
+      const hasSpecials = specials.length > 0;
+
+      const outputName = manualFileName || file.name.replace(/\.[^/.]+$/, '');
+
+      let out = '';
+      if (hasBasics) {
+        out += '[Basics]\n' + basics.join('\n');
+      }
+      if (commons.length > 0) {
+        out += '\n[Common]\n' + commons.join('\n');
+      }
+      if (uncommons.length > 0) {
+        out += '\n[Uncommon]\n' + uncommons.join('\n');
+      }
+      if (rares.length > 0) {
+        out += '\n[Rare]\n' + rares.join('\n');
+      }
+      if (hasMythics) {
+        out += '\n[Mythic]\n' + mythics.join('\n');
+      }
+      if (hasSpecials) {
+        out += '\n[Special]\n' + specials.join('\n');
+      }
+
+      out += '\n[Settings]';
+      out += '\n{';
+      out += `\n\t"name": "${outputName}",`;
+      out += '\n\t"showSlots": true,';
+      out += '\n\t"withReplacement": true,';
+      out += '\n    "layouts": {\n        "Default": {\n            "weight": 1,\n            "slots": [';
+
+      if (hasMythics) {
+        out += `
+                {
+                    "name": "RareOrMythic", 
+                    "count": 1, 
+                    "sheets": [
+                        {"name": "Rare",   "weight": 7}, 
+                        {"name": "Mythic", "weight": 1}
+                    ]			 
+                },`;
+      } else {
+        out += '\n\t\t\t\t{"name": "Rare", "count": 1 },';
+      }
+
+      out += '\n\t\t\t\t{"name": "Uncommon", "count": 3 },';
+
+      if (hasSpecials) {
+        out += '\n\t\t\t\t{"name": "Common", "count": 9 },';
+        out += '\n\t\t\t\t{"name": "Special", "count": 1 },';
+      } else {
+        out += '\n\t\t\t\t{"name": "Common", "count": 10 },';
+      }
+
+      if (hasBasics) {
+        out += '\n\t\t\t\t{"name": "Basics", "count": 1 },';
+      }
+
+      out += ' \n            ]\n        }\n    }\n}';
+
+      return out;
+    }
+
     fileInput.addEventListener('change', async (event) => {
       const [file] = event.target.files;
 
@@ -69,7 +222,7 @@
       fileName.textContent = `Selected file: ${file.name}`;
 
       try {
-        const text = await file.text();
+        const text = await processFile(file, false, null);
         fileContent.textContent = text || '(The file is empty.)';
       } catch (error) {
         fileContent.textContent = 'Unable to read the selected file as text.';
