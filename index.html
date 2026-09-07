@@ -78,7 +78,7 @@
     <h1>CubeCobra to Draftmancer</h1>
     <p>Upload a CubeCobra custom set CSV file to generate a Draftmancer file.</p>
 
-    <input id="file-input" type="file" aria-label="Upload a file">
+    <input id="file-input" type="file" accept=".csv,text/csv" aria-label="Upload a CSV file">
     <div id="file-name">No file selected.</div>
     <label title="Basics will only appear if they also appear in your CubeCobra set"><input id="basic-rarities-input" type="checkbox"> Basics in packs</label>
     <div id="output-header">
@@ -276,14 +276,23 @@
 
     fileInput.addEventListener('change', async (event) => {
       const [file] = event.target.files;
-      currentFile = file || null;
 
       if (!file) {
+        currentFile = null;
         fileName.textContent = 'No file selected.';
         await updateOutput();
         return;
       }
 
+      if (!file.name.toLowerCase().endsWith('.csv')) {
+        currentFile = null;
+        fileInput.value = '';
+        fileName.textContent = 'Please select a .csv file.';
+        await updateOutput();
+        return;
+      }
+
+      currentFile = file;
       fileName.textContent = `Selected file: ${file.name}`;
       lastOutputName = file.name.replace(/\.[^/.]+$/, '') || 'draftmancer';
 
