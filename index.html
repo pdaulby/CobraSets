@@ -46,9 +46,20 @@
       background: #fff;
     }
 
-    #copy-button:disabled {
+    #copy-button:disabled,
+    #download-button:disabled {
       cursor: not-allowed;
       opacity: 0.5;
+    }
+
+    #download-button {
+      padding: 0.4rem 0.9rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background: #fff;
+      margin-left: 0.5rem;
     }
 
     pre {
@@ -69,9 +80,13 @@
 
     <input id="file-input" type="file" aria-label="Upload a file">
     <div id="file-name">No file selected.</div>
+    <label><input id="basic-rarities-input" type="checkbox"> Basics in packs</label>
     <div id="output-header">
       <span>Output</span>
-      <button id="copy-button" type="button" disabled>Copy</button>
+      <div>
+        <button id="copy-button" type="button" disabled>Copy</button>
+        <button id="download-button" type="button" disabled>Download</button>
+      </div>
     </div>
     <pre id="file-content">File contents will appear here.</pre>
   </main>
@@ -81,6 +96,10 @@
     const fileName = document.getElementById('file-name');
     const fileContent = document.getElementById('file-content');
     const copyButton = document.getElementById('copy-button');
+    const downloadButton = document.getElementById('download-button');
+    const basicRaritiesInput = document.getElementById('basic-rarities-input');
+    let lastOutputName = 'draftmancer';
+    let currentFile = null;
 
     // Parses CSV text into rows, honoring quoted fields that may contain commas/newlines.
     function parseCsv(text) {
@@ -235,27 +254,43 @@
       return out;
     }
 
+    async function updateOutput() {
+      if (!currentFile) {
+        fileContent.textContent = 'File contents will appear here.';
+        copyButton.disabled = true;
+        downloadButton.disabled = true;
+        return;
+      }
+
+      try {
+        const text = await processFile(currentFile, basicRaritiesInput.checked, null);
+        fileContent.textContent = text || '(The file is empty.)';
+        copyButton.disabled = !text;
+        downloadButton.disabled = !text;
+      } catch (error) {
+        fileContent.textContent = 'Unable to read the selected file as text.';
+        copyButton.disabled = true;
+        downloadButton.disabled = true;
+      }
+    }
+
     fileInput.addEventListener('change', async (event) => {
       const [file] = event.target.files;
+      currentFile = file || null;
 
       if (!file) {
         fileName.textContent = 'No file selected.';
-        fileContent.textContent = 'File contents will appear here.';
-        copyButton.disabled = true;
+        await updateOutput();
         return;
       }
 
       fileName.textContent = `Selected file: ${file.name}`;
+      lastOutputName = file.name.replace(/\.[^/.]+$/, '') || 'draftmancer';
 
-      try {
-        const text = await processFile(file, false, null);
-        fileContent.textContent = text || '(The file is empty.)';
-        copyButton.disabled = !text;
-      } catch (error) {
-        fileContent.textContent = 'Unable to read the selected file as text.';
-        copyButton.disabled = true;
-      }
+      await updateOutput();
     });
+
+    basicRaritiesInput.addEventListener('change', updateOutput);
 
     copyButton.addEventListener('click', async () => {
       try {
@@ -271,6 +306,16 @@
           copyButton.textContent = 'Copy';
         }, 1500);
       }
+    });
+
+    downloadButton.addEventListener('click', () => {
+      const blob = new Blob([fileContent.textContent], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${lastOutputName}.txt`;
+      link.click();
+      URL.revokeObjectURL(url);
     });
   </script>
 </body>
