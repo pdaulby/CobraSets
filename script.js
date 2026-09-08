@@ -5,8 +5,94 @@ const copyButton = document.getElementById('copy-button');
 const downloadButton = document.getElementById('download-button');
 const basicRaritiesInput = document.getElementById('basic-rarities-input');
 const basicRaritiesLabel = document.getElementById('basic-rarities-label');
-let lastOutputName = 'draftmancer';
+const state = {
+  cardLists: null,
+  basicsInPacks: false,
+  outputName: 'draftmancer'
+};
 let currentFile = null;
+
+function setState(newState) {
+  Object.assign(state, newState);
+  render();
+}
+
+function render() {
+  basicRaritiesInput.checked = state.basicsInPacks;
+  const { basics, commons, uncommons, rares, mythics, specials } = state.cardLists;
+
+  const hasBasics = state.basicsInPacks && basics.length > 0;
+  const hasMythics = mythics.length > 0;
+  const hasSpecials = specials.length > 0;
+
+  let out = '';
+  if (hasBasics) {
+    out += '[Basics]\n' + basics.join('\n') + '\n';
+  }
+  if (commons.length > 0) {
+    out += '[Common]\n' + commons.join('\n');
+  }
+  if (uncommons.length > 0) {
+    out += '\n[Uncommon]\n' + uncommons.join('\n');
+  }
+  if (rares.length > 0) {
+    out += '\n[Rare]\n' + rares.join('\n');
+  }
+  if (hasMythics) {
+    out += '\n[Mythic]\n' + mythics.join('\n');
+  }
+  if (hasSpecials) {
+    out += '\n[Special]\n' + specials.join('\n');
+  }
+
+  out += `
+[Settings]
+{
+    "name": "${state.outputName}",
+    "showSlots": true,
+    "withReplacement": true,
+    "layouts": {
+        "Default": {
+            "weight": 1,
+            "slots": [`;
+
+  if (hasMythics) {
+    out += `
+                {
+                    "name": "RareOrMythic", 
+                    "count": 1, 
+                    "sheets": [
+                        {"name": "Rare",   "weight": 7}, 
+                        {"name": "Mythic", "weight": 1}
+                    ]			 
+                },`;
+  } else {
+    out += '\n                {"name": "Rare", "count": 1 },';
+  }
+
+  out += '\n                {"name": "Uncommon", "count": 3 },';
+
+  if (hasSpecials) {
+    out += '\n                {"name": "Common", "count": 9 },';
+    out += '\n                {"name": "Special", "count": 1 },';
+  } else {
+    out += '\n                {"name": "Common", "count": 10 },';
+  }
+
+  if (hasBasics) {
+    out += '\n                {"name": "Basics", "count": 1 },';
+  }
+  out += ` 
+            ]
+        }
+    }
+}`;
+  return out;
+}
+
+function resetState() {
+  setState({ cardLists: null, basicsInPacks: false, outputName: 'draftmancer' });
+}
 
 function bucketRows(rows) {
   const basics = [];
@@ -50,76 +136,7 @@ function bucketRows(rows) {
   return { basics, commons, uncommons, rares, mythics, specials };
 }
 
-async function processFile(file, basicsInPacks, manualFileName) {
-  const text = await file.text();
-  const rows = parseCsv(text);
-  const { basics, commons, uncommons, rares, mythics, specials } = bucketRows(rows);
-
-  const hasBasics = basicsInPacks && basics.length > 0;
-  const hasMythics = mythics.length > 0;
-  const hasSpecials = specials.length > 0;
-
-  const outputName = manualFileName || file.name.replace(/\.[^/.]+$/, '');
-
-  let out = '';
-  if (hasBasics) {
-    out += '[Basics]\n' + basics.join('\n');
-  }
-  if (commons.length > 0) {
-    out += '\n[Common]\n' + commons.join('\n');
-  }
-  if (uncommons.length > 0) {
-    out += '\n[Uncommon]\n' + uncommons.join('\n');
-  }
-  if (rares.length > 0) {
-    out += '\n[Rare]\n' + rares.join('\n');
-  }
-  if (hasMythics) {
-    out += '\n[Mythic]\n' + mythics.join('\n');
-  }
-  if (hasSpecials) {
-    out += '\n[Special]\n' + specials.join('\n');
-  }
-
-  out += '\n[Settings]';
-  out += '\n{';
-  out += `\n    "name": "${outputName}",`;
-  out += '\n    "showSlots": true,';
-  out += '\n    "withReplacement": true,';
-  out += '\n    "layouts": {\n        "Default": {\n            "weight": 1,\n            "slots": [';
-
-  if (hasMythics) {
-    out += `
-                {
-                    "name": "RareOrMythic", 
-                    "count": 1, 
-                    "sheets": [
-                        {"name": "Rare",   "weight": 7}, 
-                        {"name": "Mythic", "weight": 1}
-                    ]			 
-                },`;
-  } else {
-    out += '\n                {"name": "Rare", "count": 1 },';
-  }
-
-  out += '\n                {"name": "Uncommon", "count": 3 },';
-
-  if (hasSpecials) {
-    out += '\n                {"name": "Common", "count": 9 },';
-    out += '\n                {"name": "Special", "count": 1 },';
-  } else {
-    out += '\n                {"name": "Common", "count": 10 },';
-  }
-
-  if (hasBasics) {
-    out += '\n                {"name": "Basics", "count": 1 },';
-  }
-
-  out += ' \n            ]\n        }\n    }\n}';
-
-  return out;
-}
-
+//TODO PAUL i think some of this should be handled in the render function rather than here
 async function updateOutput() {
   if (!currentFile) {
     fileContent.textContent = 'File contents will appear here.';
@@ -129,7 +146,7 @@ async function updateOutput() {
   }
 
   try {
-    const text = await processFile(currentFile, basicRaritiesInput.checked, null);
+    const text = await render();
     fileContent.textContent = text || '(The file is empty.)';
     copyButton.disabled = !text;
     downloadButton.disabled = !text;
@@ -145,37 +162,41 @@ fileInput.addEventListener('change', async (event) => {
 
   if (!file) {
     currentFile = null;
+    resetState();
     fileName.textContent = 'No file selected.';
     basicRaritiesLabel.style.display = 'none';
-    basicRaritiesInput.checked = false;
     await updateOutput();
     return;
   }
 
   if (!file.name.toLowerCase().endsWith('.csv')) {
     currentFile = null;
+    resetState();
     fileInput.value = '';
     fileName.textContent = 'Please select a .csv file.';
     basicRaritiesLabel.style.display = 'none';
-    basicRaritiesInput.checked = false;
     await updateOutput();
     return;
   }
 
   currentFile = file;
   fileName.textContent = `Selected file: ${file.name}`;
-  lastOutputName = file.name.replace(/\.[^/.]+$/, '') || 'draftmancer';
+  const outputName = file.name.replace(/\.[^/.]+$/, '') || 'draftmancer';
 
   const rows = parseCsv(await file.text());
-  const hasBasics = bucketRows(rows).basics.length > 0;
-  //this could happen in updateOutput but its complex, we do it here to set the initial state of the basics checkbox and label
+  const cardLists = bucketRows(rows);
+  const hasBasics = cardLists.basics.length > 0;
+  setState({ cardLists, basicsInPacks: hasBasics, outputName });
+  //TODO PAUL i believe this should happen in render
   basicRaritiesLabel.style.display = hasBasics ? '' : 'none';
-  basicRaritiesInput.checked = hasBasics;
-
+  //TODO PAUL i think this should happen automatically and not need to be called
   await updateOutput();
 });
 
-basicRaritiesInput.addEventListener('change', updateOutput);
+basicRaritiesInput.addEventListener('change', () => {
+  setState({ basicsInPacks: basicRaritiesInput.checked });
+  updateOutput();
+});
 
 copyButton.addEventListener('click', async () => {
   try {
@@ -198,7 +219,7 @@ downloadButton.addEventListener('click', () => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `${lastOutputName}.txt`;
+  link.download = `${state.outputName}.txt`;
   link.click();
   URL.revokeObjectURL(url);
 });
