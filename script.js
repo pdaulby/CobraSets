@@ -29,6 +29,7 @@ function updateOutput() {
     return;
   }
   fileContent.textContent = generateDraftmancerText();
+  basicRaritiesInput.checked = state.basicsInPacks;
   copyButton.disabled = false;
   downloadButton.disabled = false;
   basicRaritiesLabel.style.display = state.cardLists.basics.length > 0 ? '' : 'none';
@@ -93,35 +94,13 @@ function loadStateFromRows(rows, outputName) {
 }
 
 function generateDraftmancerText() {
-  basicRaritiesInput.checked = state.basicsInPacks;
   const { basics, commons, uncommons, rares, mythics, specials } = state.cardLists;
 
   const hasBasics = state.basicsInPacks && basics.length > 0;
   const hasMythics = mythics.length > 0;
   const hasSpecials = specials.length > 0;
 
-  let out = '';
-  if (hasBasics) {
-    out += '[Basics]\n' + basics.join('\n') + '\n';
-  }
-  if (commons.length > 0) {
-    out += '[Common]\n' + commons.join('\n');
-  }
-  if (uncommons.length > 0) {
-    out += '\n[Uncommon]\n' + uncommons.join('\n');
-  }
-  if (rares.length > 0) {
-    out += '\n[Rare]\n' + rares.join('\n');
-  }
-  if (hasMythics) {
-    out += '\n[Mythic]\n' + mythics.join('\n');
-  }
-  if (hasSpecials) {
-    out += '\n[Special]\n' + specials.join('\n');
-  }
-
-  out += `
-[Settings]
+  let out = `[Settings]
 {
     "name": "${state.outputName}",
     "showSlots": true,
@@ -162,6 +141,25 @@ function generateDraftmancerText() {
         }
     }
 }`;
+
+  if (hasBasics) {
+    out += '\n[Basics]\n' + basics.join('\n');
+  }
+  if (commons.length > 0) {
+    out += '\n[Common]\n' + commons.join('\n');
+  }
+  if (uncommons.length > 0) {
+    out += '\n[Uncommon]\n' + uncommons.join('\n');
+  }
+  if (rares.length > 0) {
+    out += '\n[Rare]\n' + rares.join('\n');
+  }
+  if (hasMythics) {
+    out += '\n[Mythic]\n' + mythics.join('\n');
+  }
+  if (hasSpecials) {
+    out += '\n[Special]\n' + specials.join('\n');
+  }
   return out;
 }
 
