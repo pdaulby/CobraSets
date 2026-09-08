@@ -10,25 +10,86 @@ const state = {
   basicsInPacks: false,
   outputName: 'draftmancer'
 };
-let currentFile = null;
 
 function setState(newState) {
   Object.assign(state, newState);
   updateOutput();
 }
 
+function resetState() {
+  setState({ cardLists: null, basicsInPacks: false, outputName: 'draftmancer' });
+}
+
 function updateOutput() {
-  if (!currentFile) {
+  if (!state.cardLists) {
     fileContent.textContent = 'File contents will appear here.';
     copyButton.disabled = true;
     downloadButton.disabled = true;
+    basicRaritiesLabel.style.display = 'none';
     return;
   }
   fileContent.textContent = generateDraftmancerText();
   copyButton.disabled = false;
   downloadButton.disabled = false;
-
   basicRaritiesLabel.style.display = state.cardLists.basics.length > 0 ? '' : 'none';
+}
+
+async function loadFile(event) {
+  const [file] = event.target.files;
+  fileName.textContent = `Selected file: ${file.name}`;
+
+  const outputName = file.name.replace(/\.[^/.]+$/, '');
+  try {
+    const rows = parseCsv(await file.text());
+    loadStateFromRows(rows, outputName);
+  } catch (error) {
+    resetState();
+    fileContent.textContent = 'Error parsing CSV: ' + error;
+  }
+}
+
+function loadStateFromRows(rows, outputName) {
+  const basics = [];
+  const commons = [];
+  const uncommons = [];
+  const rares = [];
+  const mythics = [];
+  const specials = [];
+
+  for (const row of rows) {
+    // 0    1   2    3     4   5                6      7              8      9      10         11        12             13   14    15
+    // name,CMC,Type,Color,Set,Collector Number,Rarity,Color Category,status,Finish,maybeboard,image URL,image Back URL,tags,Notes,MTGO ID
+    const name = row[0];
+    const types = row[2].split(' ');
+    const set = row[4];
+    const collectorNumber = row[5];
+    const rarity = row[6];
+    const maybeboard = row[10];
+
+    if (maybeboard === 'true') {
+      continue;
+    }
+
+    const line = `1 ${name} (${set}) ${collectorNumber}`;
+
+    if (types.includes('Basic')) {
+      basics.push(line);
+    } else if (rarity === 'common') {
+      commons.push(line);
+    } else if (rarity === 'uncommon') {
+      uncommons.push(line);
+    } else if (rarity === 'rare') {
+      rares.push(line);
+    } else if (rarity === 'mythic') {
+      mythics.push(line);
+    } else if (rarity === 'special') {
+      specials.push(line);
+    }
+  }
+
+  cardLists = { basics, commons, uncommons, rares, mythics, specials };
+  const basicsInPacks = cardLists.basics.length > 0;
+  setState({ cardLists, basicsInPacks, outputName });
 }
 
 function generateDraftmancerText() {
@@ -104,84 +165,17 @@ function generateDraftmancerText() {
   return out;
 }
 
-function resetState() {
-  setState({ cardLists: null, basicsInPacks: false, outputName: 'draftmancer' });
+function downloadDraftmancerFile() {
+  const blob = new Blob([fileContent.textContent], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${state.outputName}.txt`;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
-function loadStateFromRows(rows, outputName) {
-  const basics = [];
-  const commons = [];
-  const uncommons = [];
-  const rares = [];
-  const mythics = [];
-  const specials = [];
-
-  for (const row of rows) {
-    // 0    1   2    3     4   5                6      7              8      9      10         11        12             13   14    15
-    // name,CMC,Type,Color,Set,Collector Number,Rarity,Color Category,status,Finish,maybeboard,image URL,image Back URL,tags,Notes,MTGO ID
-    const name = row[0];
-    const types = row[2].split(' ');
-    const set = row[4];
-    const collectorNumber = row[5];
-    const rarity = row[6];
-    const maybeboard = row[10];
-
-    if (maybeboard === 'true') {
-      continue;
-    }
-
-    const line = `1 ${name} (${set}) ${collectorNumber}`;
-
-    if (types.includes('Basic')) {
-      basics.push(line);
-    } else if (rarity === 'common') {
-      commons.push(line);
-    } else if (rarity === 'uncommon') {
-      uncommons.push(line);
-    } else if (rarity === 'rare') {
-      rares.push(line);
-    } else if (rarity === 'mythic') {
-      mythics.push(line);
-    } else if (rarity === 'special') {
-      specials.push(line);
-    }
-  }
-
-  cardLists = { basics, commons, uncommons, rares, mythics, specials };
-  const basicsInPacks = cardLists.basics.length > 0;
-  setState({ cardLists, basicsInPacks, outputName });
-}
-
-fileInput.addEventListener('change', async (event) => {
-  const [file] = event.target.files;
-
-  if (!file) {
-    currentFile = null;
-    resetState();
-    fileName.textContent = 'No file selected.';
-    basicRaritiesLabel.style.display = 'none';
-    return;
-  }
-
-  currentFile = file;
-  fileName.textContent = `Selected file: ${file.name}`;
-
-  const outputName = file.name.replace(/\.[^/.]+$/, '') || 'draftmancer';
-  try {
-    const rows = parseCsv(await file.text());
-    loadStateFromRows(rows, outputName);
-  } catch (error) {
-    console.error('Error parsing CSV:', error);
-    return;
-  }
-
-});
-
-basicRaritiesInput.addEventListener('change', () => {
-  setState({ basicsInPacks: basicRaritiesInput.checked });
-});
-
-copyButton.addEventListener('click', async () => {
+async function copyDraftmancerText() {
   try {
     await navigator.clipboard.writeText(fileContent.textContent);
     const originalLabel = copyButton.textContent;
@@ -195,14 +189,12 @@ copyButton.addEventListener('click', async () => {
       copyButton.textContent = 'Copy';
     }, 1500);
   }
+}
+
+basicRaritiesInput.addEventListener('change', () => {
+  setState({ basicsInPacks: basicRaritiesInput.checked });
 });
 
-downloadButton.addEventListener('click', () => {
-  const blob = new Blob([fileContent.textContent], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${state.outputName}.txt`;
-  link.click();
-  URL.revokeObjectURL(url);
-});
+fileInput.addEventListener('change', loadFile);
+copyButton.addEventListener('click', copyDraftmancerText);
+downloadButton.addEventListener('click', downloadDraftmancerFile);
