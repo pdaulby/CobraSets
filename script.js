@@ -94,7 +94,7 @@ function resetState() {
   setState({ cardLists: null, basicsInPacks: false, outputName: 'draftmancer' });
 }
 
-function bucketRows(rows) {
+function loadStateFromRows(rows, outputName) {
   const basics = [];
   const commons = [];
   const uncommons = [];
@@ -108,7 +108,7 @@ function bucketRows(rows) {
     const name = row[0];
     const types = row[2].split(' ');
     const set = row[4];
-    const num = row[5];
+    const collectorNumber = row[5];
     const rarity = row[6];
     const maybeboard = row[10];
 
@@ -116,7 +116,7 @@ function bucketRows(rows) {
       continue;
     }
 
-    const line = `1 ${name} (${set}) ${num}`;
+    const line = `1 ${name} (${set}) ${collectorNumber}`;
 
     if (types.includes('Basic')) {
       basics.push(line);
@@ -133,7 +133,9 @@ function bucketRows(rows) {
     }
   }
 
-  return { basics, commons, uncommons, rares, mythics, specials };
+  cardLists = { basics, commons, uncommons, rares, mythics, specials };
+  const basicsInPacks = cardLists.basics.length > 0;
+  setState({ cardLists, basicsInPacks, outputName });
 }
 
 //TODO PAUL i think some of this should be handled in the render function rather than here
@@ -146,7 +148,7 @@ async function updateOutput() {
   }
 
   try {
-    const text = await render();
+    const text = render();
     fileContent.textContent = text || '(The file is empty.)';
     copyButton.disabled = !text;
     downloadButton.disabled = !text;
@@ -169,26 +171,15 @@ fileInput.addEventListener('change', async (event) => {
     return;
   }
 
-  if (!file.name.toLowerCase().endsWith('.csv')) {
-    currentFile = null;
-    resetState();
-    fileInput.value = '';
-    fileName.textContent = 'Please select a .csv file.';
-    basicRaritiesLabel.style.display = 'none';
-    await updateOutput();
-    return;
-  }
-
   currentFile = file;
   fileName.textContent = `Selected file: ${file.name}`;
-  const outputName = file.name.replace(/\.[^/.]+$/, '') || 'draftmancer';
 
+  const outputName = file.name.replace(/\.[^/.]+$/, '') || 'draftmancer';
   const rows = parseCsv(await file.text());
-  const cardLists = bucketRows(rows);
-  const hasBasics = cardLists.basics.length > 0;
-  setState({ cardLists, basicsInPacks: hasBasics, outputName });
+  loadStateFromRows(rows, outputName);
+
   //TODO PAUL i believe this should happen in render
-  basicRaritiesLabel.style.display = hasBasics ? '' : 'none';
+  basicRaritiesLabel.style.display = state.basicsInPacks ? '' : 'none';
   //TODO PAUL i think this should happen automatically and not need to be called
   await updateOutput();
 });
