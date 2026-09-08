@@ -16,9 +16,11 @@
     <label id="basic-rarities-label" style="display: none;" title="Basics will only appear if they also appear in your CubeCobra set"><input id="basic-rarities-input" type="checkbox"> Basics in packs</label>
     <div id="output-header">
       <span>Output</span>
-      <div>
-        <button id="copy-button" type="button" disabled>Copy</button>
-        <button id="download-button" type="button" disabled>Download</button>
+      <div id="file-actions" style="display: none;">
+        <label for="output-name-input">Set name:</label>
+        <input id="output-name-input" type="text" aria-label="Output file name" placeholder="File name">
+        <button id="copy-button" type="button">Copy</button>
+        <button id="download-button" type="button">Download</button>
       </div>
     </div>
     <pre id="file-content">File contents will appear here.</pre>

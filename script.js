@@ -5,6 +5,8 @@ const copyButton = document.getElementById('copy-button');
 const downloadButton = document.getElementById('download-button');
 const basicRaritiesInput = document.getElementById('basic-rarities-input');
 const basicRaritiesLabel = document.getElementById('basic-rarities-label');
+const outputNameInput = document.getElementById('output-name-input');
+const fileActions = document.getElementById('file-actions');
 const state = {
   cardLists: null,
   basicsInPacks: false,
@@ -23,15 +25,14 @@ function resetState() {
 function updateOutput() {
   if (!state.cardLists) {
     fileContent.textContent = 'File contents will appear here.';
-    copyButton.disabled = true;
-    downloadButton.disabled = true;
+    fileActions.style.display = 'none';
     basicRaritiesLabel.style.display = 'none';
     return;
   }
   fileContent.textContent = generateDraftmancerText();
+  outputNameInput.value = state.outputName;
   basicRaritiesInput.checked = state.basicsInPacks;
-  copyButton.disabled = false;
-  downloadButton.disabled = false;
+  fileActions.style.display = 'flex';
   basicRaritiesLabel.style.display = state.cardLists.basics.length > 0 ? '' : 'none';
 }
 
@@ -164,6 +165,7 @@ function generateDraftmancerText() {
 }
 
 function downloadDraftmancerFile() {
+  if (!state.outputName) return;
   const blob = new Blob([fileContent.textContent], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -191,6 +193,10 @@ async function copyDraftmancerText() {
 
 basicRaritiesInput.addEventListener('change', () => {
   setState({ basicsInPacks: basicRaritiesInput.checked });
+});
+
+outputNameInput.addEventListener('input', () => {
+  setState({ outputName: outputNameInput.value });
 });
 
 fileInput.addEventListener('change', loadFile);
