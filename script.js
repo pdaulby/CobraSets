@@ -14,10 +14,24 @@ let currentFile = null;
 
 function setState(newState) {
   Object.assign(state, newState);
-  render();
+  updateOutput();
 }
 
-function render() {
+function updateOutput() {
+  if (!currentFile) {
+    fileContent.textContent = 'File contents will appear here.';
+    copyButton.disabled = true;
+    downloadButton.disabled = true;
+    return;
+  }
+  fileContent.textContent = generateDraftmancerText();
+  copyButton.disabled = false;
+  downloadButton.disabled = false;
+
+  basicRaritiesLabel.style.display = state.cardLists.basics.length > 0 ? '' : 'none';
+}
+
+function generateDraftmancerText() {
   basicRaritiesInput.checked = state.basicsInPacks;
   const { basics, commons, uncommons, rares, mythics, specials } = state.cardLists;
 
@@ -138,27 +152,6 @@ function loadStateFromRows(rows, outputName) {
   setState({ cardLists, basicsInPacks, outputName });
 }
 
-//TODO PAUL i think some of this should be handled in the render function rather than here
-async function updateOutput() {
-  if (!currentFile) {
-    fileContent.textContent = 'File contents will appear here.';
-    copyButton.disabled = true;
-    downloadButton.disabled = true;
-    return;
-  }
-
-  try {
-    const text = render();
-    fileContent.textContent = text || '(The file is empty.)';
-    copyButton.disabled = !text;
-    downloadButton.disabled = !text;
-  } catch (error) {
-    fileContent.textContent = 'Unable to read the selected file as text.';
-    copyButton.disabled = true;
-    downloadButton.disabled = true;
-  }
-}
-
 fileInput.addEventListener('change', async (event) => {
   const [file] = event.target.files;
 
@@ -167,7 +160,6 @@ fileInput.addEventListener('change', async (event) => {
     resetState();
     fileName.textContent = 'No file selected.';
     basicRaritiesLabel.style.display = 'none';
-    await updateOutput();
     return;
   }
 
@@ -175,18 +167,18 @@ fileInput.addEventListener('change', async (event) => {
   fileName.textContent = `Selected file: ${file.name}`;
 
   const outputName = file.name.replace(/\.[^/.]+$/, '') || 'draftmancer';
-  const rows = parseCsv(await file.text());
-  loadStateFromRows(rows, outputName);
+  try {
+    const rows = parseCsv(await file.text());
+    loadStateFromRows(rows, outputName);
+  } catch (error) {
+    console.error('Error parsing CSV:', error);
+    return;
+  }
 
-  //TODO PAUL i believe this should happen in render
-  basicRaritiesLabel.style.display = state.basicsInPacks ? '' : 'none';
-  //TODO PAUL i think this should happen automatically and not need to be called
-  await updateOutput();
 });
 
 basicRaritiesInput.addEventListener('change', () => {
   setState({ basicsInPacks: basicRaritiesInput.checked });
-  updateOutput();
 });
 
 copyButton.addEventListener('click', async () => {
